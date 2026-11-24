@@ -17,6 +17,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionManager;
 import spring.batch.example.data.ReportCsvRecord;
 import spring.batch.example.data.ReportDbRecord;
 
@@ -25,15 +27,11 @@ import javax.sql.DataSource;
 @Configuration
 public class ReportJobConfiguration {
 
-    @Bean
-    public JdbcTransactionManager transactionManager(DataSource dataSource){
-        return new JdbcTransactionManager(dataSource);
-    }
 
     @Bean
     public Step reportStep(
             JobRepository jobRepository,
-            JdbcTransactionManager transactionManager,
+            PlatformTransactionManager transactionManager,
             JdbcCursorItemReader<@NotNull ReportDbRecord> reportDataReader,
             ItemProcessor<@NotNull ReportDbRecord, @NotNull ReportCsvRecord> reportProcessor,
             FlatFileItemWriter<@NotNull ReportCsvRecord> reportDataWriter) {
@@ -46,7 +44,7 @@ public class ReportJobConfiguration {
     }
 
     @Bean
-    public Job reprotJob(JobRepository jobRepository, Step reportStep) {
+    public Job reportJob(JobRepository jobRepository, Step reportStep) {
         return new JobBuilder("CovidReport", jobRepository)
                 .start(reportStep)
                 .build();
@@ -55,11 +53,11 @@ public class ReportJobConfiguration {
     @Bean
     public JdbcCursorItemReader<@NotNull ReportDbRecord> reportDataReader(DataSource dataSource){
         String sql = """
-                SELECT trade_date, direction, measure, SUM(value) as total, COUNT(*) as days
+                SELECT EXTRACT(YEAR FROM trade_date)::int as trade_year, direction, measure, SUM(value) as total, COUNT(*) as days
                 FROM covid_trade
-                WHERE country = 'All' AND direction = 'All' AND transport_mode = 'All'
-                GROUP BY trade_date, direction, measure
-                ORDER BY trade_date, direction, measure
+                WHERE country = 'All' AND commodity = 'All' AND transport_mode = 'All'
+                GROUP BY trade_year, direction, measure
+                ORDER BY trade_year, direction, measure
                 """;
 
         return new JdbcCursorItemReaderBuilder<@NotNull ReportDbRecord>()
@@ -88,7 +86,7 @@ public class ReportJobConfiguration {
 
     @Bean
     @StepScope
-    public FlatFileItemWriter<@NotNull ReportCsvRecord> reportWrite(@Value("#{jobParameters['input.file']}") String outputFile) {
+    public FlatFileItemWriter<@NotNull ReportCsvRecord> reportWrite(@Value("#{jobParameters['output.file']}") String outputFile) {
         return new FlatFileItemWriterBuilder<@NotNull ReportCsvRecord>()
                 .name("reportWrite")
                 .resource(new FileSystemResource(outputFile))

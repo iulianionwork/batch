@@ -22,25 +22,22 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
 import spring.batch.example.data.TradeCsvRecord;
 import spring.batch.example.data.TradeDbRecord;
 
 import javax.sql.DataSource;
 import java.nio.file.Path;
+import java.time.LocalDate;
 
 
 @Configuration
 public class ImportJobConfiguration {
 
-    @Bean
-    public JdbcTransactionManager transactionManager(DataSource dataSource){
-        return new JdbcTransactionManager(dataSource);
-    }
 
     @Bean
     public Step moveFileStep(JobRepository jobRepository,
-                             JdbcTransactionManager transactionManager,
+                             PlatformTransactionManager transactionManager,
                              MoveFileTasklet moveFileTasklet) {
         return new StepBuilder("moveFileStep", jobRepository)
                 .tasklet(moveFileTasklet, transactionManager)
@@ -50,7 +47,7 @@ public class ImportJobConfiguration {
     @Bean
     public Step importStep(
             JobRepository jobRepository,
-            JdbcTransactionManager transactionManager,
+            PlatformTransactionManager transactionManager,
             ItemReader<@NotNull TradeCsvRecord> tradeReader,
             CompositeItemProcessor<@NotNull TradeCsvRecord, @NotNull TradeDbRecord> tradeValidationProcessor,
             ItemWriter<@NotNull TradeDbRecord> tradeWriter) {
@@ -88,7 +85,17 @@ public class ImportJobConfiguration {
                         "measure",
                         "value",
                         "cumulative")
-                .targetType(TradeCsvRecord.class)
+                .fieldSetMapper(fieldSet -> new TradeCsvRecord(
+                        fieldSet.readString("direction"),
+                        fieldSet.readInt("year"),
+                        LocalDate.parse(fieldSet.readString("date")),
+                        fieldSet.readString("weekend"),
+                        fieldSet.readString("country"),
+                        fieldSet.readString("commodity"),
+                        fieldSet.readString("transportMode"),
+                        fieldSet.readString("measure"),
+                        fieldSet.readLong("value"),
+                        fieldSet.readLong("cumulative")))
                 .build();
     }
 
@@ -102,6 +109,7 @@ public class ImportJobConfiguration {
         return new JdbcBatchItemWriterBuilder<@NotNull TradeDbRecord>()
                 .dataSource(dataSource)
                 .sql(sql)
+                .assertUpdates(false)
                 .beanMapped()
                 .build();
     }
