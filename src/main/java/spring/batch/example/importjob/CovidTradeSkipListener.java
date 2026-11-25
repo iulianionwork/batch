@@ -4,6 +4,7 @@ import org.springframework.batch.core.listener.SkipListener;
 import org.springframework.batch.infrastructure.item.file.FlatFileParseException;
 import org.springframework.batch.infrastructure.item.validator.ValidationException;
 import spring.batch.example.data.TradeCsvRecord;
+import spring.batch.example.data.TradeDbRecord;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,7 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
-public class CovidTradeSkipListener implements SkipListener<TradeCsvRecord,TradeCsvRecord> {
+public class CovidTradeSkipListener implements SkipListener<TradeCsvRecord, TradeDbRecord> {
 
     Path skippedItemsFile;
 
@@ -28,7 +29,7 @@ public class CovidTradeSkipListener implements SkipListener<TradeCsvRecord,Trade
             try {
                 Files.writeString(this.skippedItemsFile, skippedLine, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
             } catch (IOException e) {
-                throw new RuntimeException("Unable to write skipped item " + skippedLine);
+                throw new RuntimeException("Unable to write skipped item " + skippedLine, e);
             }
         }
     }
@@ -43,7 +44,7 @@ public class CovidTradeSkipListener implements SkipListener<TradeCsvRecord,Trade
             try {
                 Files.writeString(this.skippedItemsFile, skippedLine, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
             } catch (IOException e) {
-                throw new RuntimeException("Unable to write skipped item " + skippedLine);
+                throw new RuntimeException("Unable to write skipped item " + skippedLine, e);
             }
         }
 

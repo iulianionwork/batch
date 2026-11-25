@@ -22,10 +22,16 @@ public class CovidTradeValidator implements Validator<@NotNull TradeCsvRecord> {
             throw new ValidationException("Invalid measure: " + value.measure());
         }
         if(value.value() < 0 || value.cumulative() < 0){
-            throw new ValidationException("Negative value on date: " +value.date());
+            throw new ValidationException("Negative value: " +value.value());
         }
-        if(isBlank(value.country()) || isBlank(value.commodity()) || isBlank(value.transportMode())){
-            throw new ValidationException("Invalid row on date: " +value.date());
+        if(isBlank(value.country())){
+            throw new ValidationException("Invalid row Country value can't be null");
+        }
+        if (isBlank(value.commodity())) {
+            throw new ValidationException("Invalid row Commodity value can't be null");
+        }
+        if(isBlank(value.transportMode())){
+            throw new ValidationException("Invalid row Transport Mode value can't be null");
         }
     }
 

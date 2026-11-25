@@ -127,7 +127,6 @@ public class ImportJobConfiguration {
     @Bean
     public CompositeItemProcessor<@NotNull TradeCsvRecord, @NotNull TradeDbRecord> tradeProcessor(){
         ValidatingItemProcessor<@NotNull TradeCsvRecord> validate = new ValidatingItemProcessor<>(new CovidTradeValidator());
-        validate.setFilter(true);
 
         ItemProcessor<@NotNull TradeCsvRecord, @NotNull TradeDbRecord> cleanData = row -> new TradeDbRecord(row.direction(),
                 row.date(),
