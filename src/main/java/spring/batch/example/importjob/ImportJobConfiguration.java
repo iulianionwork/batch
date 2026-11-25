@@ -14,10 +14,12 @@ import org.springframework.batch.infrastructure.item.ItemWriter;
 import org.springframework.batch.infrastructure.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.infrastructure.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.infrastructure.item.file.FlatFileItemReader;
+import org.springframework.batch.infrastructure.item.file.FlatFileParseException;
 import org.springframework.batch.infrastructure.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.infrastructure.item.support.CompositeItemProcessor;
 import org.springframework.batch.infrastructure.item.support.builder.CompositeItemProcessorBuilder;
 import org.springframework.batch.infrastructure.item.validator.ValidatingItemProcessor;
+import org.springframework.batch.infrastructure.item.validator.ValidationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,6 +31,7 @@ import spring.batch.example.data.TradeDbRecord;
 import javax.sql.DataSource;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 
 @Configuration
@@ -50,12 +53,17 @@ public class ImportJobConfiguration {
             PlatformTransactionManager transactionManager,
             ItemReader<@NotNull TradeCsvRecord> tradeReader,
             CompositeItemProcessor<@NotNull TradeCsvRecord, @NotNull TradeDbRecord> tradeValidationProcessor,
-            ItemWriter<@NotNull TradeDbRecord> tradeWriter) {
+            ItemWriter<@NotNull TradeDbRecord> tradeWriter,
+            CovidTradeSkipListener skipListener) {
         return new ChunkOrientedStepBuilder<@NotNull TradeCsvRecord, @NotNull TradeDbRecord>("importStep", jobRepository, 1000)
                 .reader(tradeReader)
                 .processor(tradeValidationProcessor)
                 .writer(tradeWriter)
                 .transactionManager(transactionManager)
+                .faultTolerant()
+                .skip(FlatFileParseException.class, ValidationException.class)
+                .skipLimit(100)
+                .listener(skipListener)
                 .build();
     }
 
@@ -70,6 +78,9 @@ public class ImportJobConfiguration {
     @Bean
     @StepScope
     public FlatFileItemReader<@NotNull TradeCsvRecord> tradeReader(@Value("#{jobParameters['input.file']}") String inputFile) {
+
+        DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
         return new FlatFileItemReaderBuilder<@NotNull TradeCsvRecord>()
                 .name("tradeReader")
                 .resource(new FileSystemResource(inputFile))
@@ -88,8 +99,8 @@ public class ImportJobConfiguration {
                 .fieldSetMapper(fieldSet -> new TradeCsvRecord(
                         fieldSet.readString("direction"),
                         fieldSet.readInt("year"),
-                        LocalDate.parse(fieldSet.readString("date")),
-                        fieldSet.readString("weekend"),
+                        LocalDate.parse(fieldSet.readString("date"), dateFormat),
+                        fieldSet.readString("weekday"),
                         fieldSet.readString("country"),
                         fieldSet.readString("commodity"),
                         fieldSet.readString("transportMode"),
@@ -102,9 +113,8 @@ public class ImportJobConfiguration {
     @Bean
     public JdbcBatchItemWriter<@NotNull TradeDbRecord> tradeWriter(DataSource dataSource) {
         String sql = """ 
-                INSERT INTO covid_trade
+                INSERT INTO covid_trade (direction, trade_date, country, commodity, transport_mode, measure, value, cumulative)
                 VALUES (:direction, :date, :country, :commodity, :transportMode, :measure, :value, :cumulative)
-                ON CONFLICT ON CONSTRAINT uq_trade DO NOTHING
                 """;
         return new JdbcBatchItemWriterBuilder<@NotNull TradeDbRecord>()
                 .dataSource(dataSource)
@@ -140,6 +150,13 @@ public class ImportJobConfiguration {
             @Value("#{jobParameters['new.dir']}") String newDirectory){
         return new MoveFileTasklet(Path.of(inputFile),Path.of(newDirectory));
     }
+
+    @Bean
+    @StepScope
+    public CovidTradeSkipListener skipListener(@Value("#{jobParameters['skip.file']}") String skippedFile) {
+        return new CovidTradeSkipListener(skippedFile);
+    }
+
 
 }
 

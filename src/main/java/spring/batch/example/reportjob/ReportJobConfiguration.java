@@ -53,10 +53,10 @@ public class ReportJobConfiguration {
     @Bean
     public JdbcCursorItemReader<@NotNull ReportDbRecord> reportDataReader(DataSource dataSource){
         String sql = """
-                SELECT EXTRACT(YEAR FROM trade_date)::int as trade_year, direction, measure, SUM(value) as total, COUNT(*) as days
+                SELECT EXTRACT(YEAR FROM trade_date) AS trade_year, direction, measure, SUM(value) as total, COUNT(*) as days
                 FROM covid_trade
                 WHERE country = 'All' AND commodity = 'All' AND transport_mode = 'All'
-                GROUP BY trade_year, direction, measure
+                GROUP BY EXTRACT(YEAR FROM trade_date), direction, measure
                 ORDER BY trade_year, direction, measure
                 """;
 
@@ -65,7 +65,7 @@ public class ReportJobConfiguration {
                 .dataSource(dataSource)
                 .sql(sql)
                 .rowMapper(((rs, rowNum) -> new ReportDbRecord(
-                        rs.getInt("trade_date"),
+                        rs.getInt("trade_year"),
                         rs.getString("direction"),
                         rs.getString("measure"),
                         rs.getLong("total"),

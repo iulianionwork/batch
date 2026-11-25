@@ -8,7 +8,9 @@ import org.springframework.batch.core.job.parameters.JobParametersBuilder;
 import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
+@Component
 public class JobRunner implements CommandLineRunner {
 
     private final JobOperator jobOperator;
@@ -25,6 +27,8 @@ public class JobRunner implements CommandLineRunner {
         JobParameters importParameters = new JobParametersBuilder()
                 .addString("input.file", "src/main/resources/input/covid_trade.csv")
                 .addString("new.dir", "src/main/resources/processed")
+                .addString("skip.file", "src/main/resources/output/skip-rows.csv")
+                .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
 
 
@@ -32,7 +36,18 @@ public class JobRunner implements CommandLineRunner {
         if(importExecution.getStatus() != BatchStatus.COMPLETED){
             return;
         }
+
+
+
+
+        JobParameters reportParameters = new JobParametersBuilder()
+                .addString("output.file", "src/main/resources/output/covid-report.csv")
+                .addLong("run.id", System.currentTimeMillis())
+                .toJobParameters();
+
+        jobOperator.start(reportJob, reportParameters);
     }
+
 
 
 }
