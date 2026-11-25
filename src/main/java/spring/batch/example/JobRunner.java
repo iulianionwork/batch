@@ -28,7 +28,6 @@ public class JobRunner implements CommandLineRunner {
                 .addString("input.file", "src/main/resources/input/covid_trade.csv")
                 .addString("new.dir", "src/main/resources/processed")
                 .addString("skip.file", "src/main/resources/output/skip-rows.csv")
-                .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
 
 
@@ -42,7 +41,6 @@ public class JobRunner implements CommandLineRunner {
 
         JobParameters reportParameters = new JobParametersBuilder()
                 .addString("output.file", "src/main/resources/output/covid-report.csv")
-                .addLong("run.id", System.currentTimeMillis())
                 .toJobParameters();
 
         jobOperator.start(reportJob, reportParameters);
